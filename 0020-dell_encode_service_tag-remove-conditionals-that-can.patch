@@ -1,0 +1,43 @@
+From acb4b354e5e42d9ddf6b0a84ac3912fa9b53dc11 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 16:45:29 -0400
+Subject: [PATCH 20/22] dell_encode_service_tag(): remove conditionals that
+ can't be true.
+
+Covscan noticed:
+Error: DEADCODE (CWE-561): [#def41]
+libsmbios-2.3.3/src/libsmbios_c/system_info/service_tag.c:109: cond_at_least: Condition "len <= 5UL", taking false branch. Now the value of "len" is at least 6.
+libsmbios-2.3.3/src/libsmbios_c/system_info/service_tag.c:122: cond_at_least: Condition "len < 7UL", taking false branch. Now the value of "len" is at least 7.
+libsmbios-2.3.3/src/libsmbios_c/system_info/service_tag.c:122: cond_const: Condition "len < 7UL", taking true branch. Now the value of "len" is equal to 6.
+libsmbios-2.3.3/src/libsmbios_c/system_info/service_tag.c:149: at_least: At condition "len < 5UL", the value of "len" must be at least 6.
+libsmbios-2.3.3/src/libsmbios_c/system_info/service_tag.c:149: dead_error_condition: The condition "len < 5UL" cannot be true.
+libsmbios-2.3.3/src/libsmbios_c/system_info/service_tag.c:149: dead_error_line: Execution cannot reach the expression "len" inside this statement: "memcpy(tag, newTagBuf, ((le...".
+
+And the reason it thinks that is that at the top of the function, we
+return:
+    if (len <= SVC_TAG_CMOS_LEN_MAX)
+        return;
+
+So this patch just makes it use that value unconditionally for the memcpy().
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/system_info/service_tag.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/libsmbios_c/system_info/service_tag.c b/src/libsmbios_c/system_info/service_tag.c
+index 353c2314779..b2b0af60eec 100644
+--- a/src/libsmbios_c/system_info/service_tag.c
++++ b/src/libsmbios_c/system_info/service_tag.c
+@@ -146,7 +146,7 @@ static void dell_encode_service_tag( char *tag, size_t len )
+     newTagBuf[4] = newTagBuf[4] | dell_encode_digit(tagToSet[6]);
+ 
+     memset(tag, 0, len);
+-    memcpy(tag, newTagBuf, len < SVC_TAG_CMOS_LEN_MAX ? len: SVC_TAG_CMOS_LEN_MAX);
++    memcpy(tag, newTagBuf, SVC_TAG_CMOS_LEN_MAX);
+     return;
+ }
+ 
+-- 
+2.14.3
+

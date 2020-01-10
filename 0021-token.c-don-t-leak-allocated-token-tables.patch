@@ -1,0 +1,76 @@
+From bf07436ef6c618487974af59e7044152e065f5e8 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 16:51:11 -0400
+Subject: [PATCH 21/22] token.c: don't leak allocated token tables.
+
+Covscan noticed:
+Error: RESOURCE_LEAK (CWE-772): [#def42]
+libsmbios-2.3.3/src/libsmbios_c/token/token.c:41: alloc_fn: Storage is returned from allocation function "token_table_factory".
+libsmbios-2.3.3/src/libsmbios_c/token/token_obj.c:84:9: alloc_fn: Storage is returned from allocation function "calloc".
+libsmbios-2.3.3/src/libsmbios_c/token/token_obj.c:84:9: var_assign: Assigning: "toReturn" = "calloc(1UL, 32UL)".
+libsmbios-2.3.3/src/libsmbios_c/token/token_obj.c:100:9: noescape: Resource "toReturn" is not freed or pointed-to in function "clear_err".
+libsmbios-2.3.3/src/libsmbios_c/token/token_obj.c:62:49: noescape: "clear_err(struct token_table const *)" does not free or save its parameter "table".
+libsmbios-2.3.3/src/libsmbios_c/token/token_obj.c:101:5: return_alloc: Returning allocated memory "toReturn".
+libsmbios-2.3.3/src/libsmbios_c/token/token.c:41: var_assign: Assigning: "table" = storage returned from "token_table_factory(8)".
+libsmbios-2.3.3/src/libsmbios_c/token/token.c:44: noescape: Resource "table" is not freed or pointed-to in "token_table_strerror".
+libsmbios-2.3.3/src/libsmbios_c/token/token_obj.c:114:61: noescape: "token_table_strerror(struct token_table const *)" does not free or save its parameter "table".
+libsmbios-2.3.3/src/libsmbios_c/token/token.c:45: leaked_storage: Variable "table" going out of scope leaks the storage it points to.
+
+And then I noticed it also happens on some of the generated accessors.
+
+This patch frees the allocations.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/token/token.c | 31 +++++++++++++++++--------------
+ 1 file changed, 17 insertions(+), 14 deletions(-)
+
+diff --git a/src/libsmbios_c/token/token.c b/src/libsmbios_c/token/token.c
+index 296311f25df..0771ca31d2f 100644
+--- a/src/libsmbios_c/token/token.c
++++ b/src/libsmbios_c/token/token.c
+@@ -40,24 +40,27 @@ const char * token_strerror()
+     const char *retval = 0;
+     struct token_table *table = token_table_factory(TOKEN_DEFAULTS | TOKEN_NO_ERR_CLEAR);
+     fnprintf("\n");
+-    if (table)
++    if (table) {
+         retval = token_table_strerror(table);
++        free(table);
++    }
+     return retval;
+ }
+ 
+-#define make_token_fn(ret, defret, callname)\
+-    ret token_##callname (u16 id)    \
+-    {\
+-        struct token_table *table = 0;              \
+-        const struct token_obj *token = 0;          \
+-        fnprintf("\n"); \
+-        table = token_table_factory(TOKEN_DEFAULTS); \
+-        if (!table) goto out;                       \
+-        token = token_table_get_next_by_id(table, 0, id); \
+-        if (!token) goto out;                       \
+-        return token_obj_##callname (token);                    \
+-out:\
+-        return defret;  \
++#define make_token_fn(ret, defret, callname)                \
++    ret token_##callname (u16 id)                           \
++    {                                                       \
++        struct token_table *table = 0;                      \
++        const struct token_obj *token = 0;                  \
++        fnprintf("\n");                                     \
++        table = token_table_factory(TOKEN_DEFAULTS);        \
++        if (!table) goto out;                               \
++        token = token_table_get_next_by_id(table, 0, id);   \
++        free(table);                                        \
++        if (!token) goto out;                               \
++        return token_obj_##callname (token);                \
++out:                                                        \
++        return defret;                                      \
+     }
+ 
+ make_token_fn(int, 0, get_type)
+-- 
+2.14.3
+

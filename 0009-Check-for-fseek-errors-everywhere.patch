@@ -1,0 +1,263 @@
+From 6bc66384084a018724b0c94ed30088dff5130e16 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 12:32:49 -0400
+Subject: [PATCH 09/22] Check for fseek errors everywhere.
+
+covscan noticed these aren't checked.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/smi/smi_linux.c       |  5 ++++-
+ src/libsmbios_c/smi/smi_solaris.c     |  6 +++++-
+ src/libsmbios_c++/smi/SmiImpl.h       |  4 +++-
+ src/libsmbios_c++/cmos/CmosRW.cpp     | 16 ++++++++++++++--
+ src/libsmbios_c++/smi/Smi_Linux.cpp   | 22 ++++++++++++++++++----
+ src/libsmbios_c++/smi/Smi_Solaris.cpp | 23 ++++++++++++++++++-----
+ 6 files changed, 62 insertions(+), 14 deletions(-)
+
+diff --git a/src/libsmbios_c/smi/smi_linux.c b/src/libsmbios_c/smi/smi_linux.c
+index c97489fed42..f810b43e699 100644
+--- a/src/libsmbios_c/smi/smi_linux.c
++++ b/src/libsmbios_c/smi/smi_linux.c
+@@ -59,6 +59,7 @@ u32 __hidden get_phys_buf_addr()
+     FILE *fd = 0;
+     u32 physaddr = 0;
+     char linebuf[bufsize] = {0,};
++    int ret;
+ 
+     fnprintf("\n");
+ 
+@@ -68,7 +69,9 @@ u32 __hidden get_phys_buf_addr()
+     if (!fd)
+         goto out;
+ 
+-    fseek(fd, 0L, 0);
++    ret = fseek(fd, 0L, 0);
++    if (ret < 0)
++        goto out_close;
+     size_t numBytes = fread(linebuf, 1, bufsize, fd);
+     if (!numBytes)
+         goto out_close;
+diff --git a/src/libsmbios_c/smi/smi_solaris.c b/src/libsmbios_c/smi/smi_solaris.c
+index bb407750ba1..d190305c8f8 100644
+--- a/src/libsmbios_c/smi/smi_solaris.c
++++ b/src/libsmbios_c/smi/smi_solaris.c
+@@ -59,6 +59,7 @@ u32 __internal get_phys_buf_addr()
+     FILE *fd = 0;
+     u32 physaddr = 0;
+     char linebuf[bufsize] = {0,};
++    int ret;
+ 
+     fnprintf("\n");
+ 
+@@ -68,7 +69,10 @@ u32 __internal get_phys_buf_addr()
+     if (!fd)
+         goto out;
+ 
+-    fseek(fd, 0L, 0);
++    ret = fseek(fd, 0L, 0);
++    if (ret < 0)
++        goto out_close;
++
+     size_t numBytes = fread(linebuf, 1, bufsize, fd);
+     if (!numBytes)
+         goto out_close;
+diff --git a/src/libsmbios_c++/smi/SmiImpl.h b/src/libsmbios_c++/smi/SmiImpl.h
+index 6373d79d0ca..b448e5d8087 100644
+--- a/src/libsmbios_c++/smi/SmiImpl.h
++++ b/src/libsmbios_c++/smi/SmiImpl.h
+@@ -84,7 +84,9 @@ namespace smi
+         };
+         virtual void execute()
+         {
+-            fseek(fh,0,0);
++            int ret = fseek(fh,0,0);
++            if (ret < 0)
++                throw std::exception();
+         };
+         virtual void getResultBuffer(u8 *buffer, size_t size)
+         {
+diff --git a/src/libsmbios_c++/cmos/CmosRW.cpp b/src/libsmbios_c++/cmos/CmosRW.cpp
+index 32642228176..c4274d4b2f7 100644
+--- a/src/libsmbios_c++/cmos/CmosRW.cpp
++++ b/src/libsmbios_c++/cmos/CmosRW.cpp
+@@ -118,6 +118,7 @@ namespace cmos
+     //
+     u8 CmosRWFile::readByte (u32 indexPort, u32 dataPort, u32 offset) const
+     {
++        int ret;
+         u8 retval = 0xFF;
+         u32 realOffset = indexPort * 256 + offset;
+         (void) dataPort; // unused
+@@ -127,7 +128,12 @@ namespace cmos
+         if( !fh )
+             throw smbios::InternalErrorImpl(errMessage + strerror(errno));
+ 
+-        fseek (fh, static_cast<long>(realOffset), SEEK_SET);
++        ret = fseek (fh, static_cast<long>(realOffset), SEEK_SET);
++        if (ret < 0)
++        {
++            fclose (fh);
++            throw std::exception();
++        }
+         size_t numRecs = fread (&retval, sizeof (retval), 1, fh); // only used in unit tests, so isnt critical
+         fclose (fh);
+         if (numRecs != 1)
+@@ -141,6 +147,7 @@ namespace cmos
+     void CmosRWFile::writeByte (u32 indexPort, u32 dataPort, u32 offset, u8 byte) const
+     {
+         //cout << "w(" << offset << ")";
++        int ret;
+         u32 realOffset = indexPort * 256 + offset;
+         (void) dataPort; // unused
+         string errMessage("Could not open CMOS file(" + fileName + ") for writing: ");
+@@ -149,7 +156,12 @@ namespace cmos
+         if( !fh )
+             throw smbios::InternalErrorImpl(errMessage + strerror(errno));
+ 
+-        fseek (fh, static_cast<long>(realOffset), SEEK_SET);
++        ret = fseek (fh, static_cast<long>(realOffset), SEEK_SET);
++        if (ret < 0)
++        {
++            fclose (fh);
++            throw std::exception();
++        }
+         size_t recs = fwrite (&byte, sizeof (byte), 1, fh);
+         fclose (fh);
+         fflush(NULL);
+diff --git a/src/libsmbios_c++/smi/Smi_Linux.cpp b/src/libsmbios_c++/smi/Smi_Linux.cpp
+index 3107d892296..5f3ecc31017 100644
+--- a/src/libsmbios_c++/smi/Smi_Linux.cpp
++++ b/src/libsmbios_c++/smi/Smi_Linux.cpp
+@@ -76,6 +76,7 @@ namespace smi
+ 
+     void SmiArchStrategy::lock()
+     {
++        int ret;
+         smiLinuxPrivateData *tmpPrivPtr = reinterpret_cast<smiLinuxPrivateData *>(privateData);
+ 
+ 
+@@ -89,9 +90,13 @@ namespace smi
+ 
+         flock( fileno(tmpPrivPtr->fh_data), LOCK_EX );
+ 
+-        fseek(tmpPrivPtr->fh_doReq, 0L, 0);
++        ret = fseek(tmpPrivPtr->fh_doReq, 0L, 0);
++        if (ret < 0)
++            throw std::exception();
+         FWRITE("0", 1, 1, tmpPrivPtr->fh_doReq);
+-        fseek(tmpPrivPtr->fh_doReq, 0L, 0);
++        ret = fseek(tmpPrivPtr->fh_doReq, 0L, 0);
++        if (ret < 0)
++            throw std::exception();
+     }
+ 
+     size_t SmiArchStrategy::getPhysicalBufferBaseAddress()
+@@ -99,6 +104,7 @@ namespace smi
+         const int bufSize=63;
+         char tmpBuf[bufSize+1] = {0,};
+         size_t retval = 0;
++        int ret;
+ 
+         fflush(NULL);
+ 
+@@ -106,7 +112,12 @@ namespace smi
+         if( ! fh )
+             throw smbios::InternalErrorImpl("Could not open file " SMI_PHYS_ADDR_FILE ". Check that dcdbas driver is properly loaded.");
+ 
+-        fseek(fh, 0L, 0);
++        ret = fseek(fh, 0L, 0);
++        if (ret < 0)
++        {
++            fclose(fh);
++            throw std::exception();
++        }
+         size_t numBytes = fread(tmpBuf, 1, bufSize, fh);
+         fclose(fh);
+         fh=0;
+@@ -155,11 +166,14 @@ namespace smi
+ 
+     void SmiArchStrategy::execute()
+     {
++        int ret;
+         smiLinuxPrivateData *tmpPrivPtr = reinterpret_cast<smiLinuxPrivateData *>(privateData);
+         fflush(NULL);
+         FWRITE("1", 1, 1, tmpPrivPtr->fh_doReq);
+         fflush(NULL);
+-        fseek(tmpPrivPtr->fh_data, 0L, 0);
++        ret = fseek(tmpPrivPtr->fh_data, 0L, 0);
++        if (ret < 0)
++            throw std::exception();
+     }
+ 
+     void SmiArchStrategy::finish()
+diff --git a/src/libsmbios_c++/smi/Smi_Solaris.cpp b/src/libsmbios_c++/smi/Smi_Solaris.cpp
+index d2190eea479..7ffce233e34 100644
+--- a/src/libsmbios_c++/smi/Smi_Solaris.cpp
++++ b/src/libsmbios_c++/smi/Smi_Solaris.cpp
+@@ -79,7 +79,7 @@ namespace smi
+     void SmiArchStrategy::lock()
+     {
+         smiSolarisPrivateData *tmpPrivPtr = reinterpret_cast<smiSolarisPrivateData *>(privateData);
+-
++        int ret;
+ 
+         tmpPrivPtr->fh_data = fopen(SMI_DATA_FILE, "r+b");
+         if( ! tmpPrivPtr->fh_data )
+@@ -89,9 +89,13 @@ namespace smi
+         if( ! tmpPrivPtr->fh_doReq)
+             throw smbios::InternalErrorImpl("Could not open file " SMI_DO_REQUEST_FILE ". Check that dcdbas driver is properly loaded.");
+ 
+-        fseek(tmpPrivPtr->fh_doReq, 0L, 0);
++        ret = fseek(tmpPrivPtr->fh_doReq, 0L, 0);
++        if (ret < 0)
++            throw std::exception();
+         FWRITE("0", 1, 1, tmpPrivPtr->fh_doReq);
+-        fseek(tmpPrivPtr->fh_doReq, 0L, 0);
++        ret = fseek(tmpPrivPtr->fh_doReq, 0L, 0);
++        if (ret < 0)
++            throw std::exception();
+     }
+ 
+     size_t SmiArchStrategy::getPhysicalBufferBaseAddress()
+@@ -99,6 +103,7 @@ namespace smi
+         const int bufSize=63;
+         char tmpBuf[bufSize+1] = {0,};
+         size_t retval = 0;
++        int ret;
+ 
+         fflush(NULL);
+ 
+@@ -106,7 +111,12 @@ namespace smi
+         if( ! fh )
+             throw smbios::InternalErrorImpl("Could not open file " SMI_PHYS_ADDR_FILE ". Check that dcdbas driver is properly loaded.");
+ 
+-        fseek(fh, 0L, 0);
++        ret = fseek(fh, 0L, 0);
++        if (ret < 0)
++        {
++            fclose(fh);
++            throw std::exception();
++        }
+         size_t numBytes = fread(tmpBuf, 1, bufSize, fh);
+         fclose(fh);
+         fh=0;
+@@ -155,11 +165,14 @@ namespace smi
+ 
+     void SmiArchStrategy::execute()
+     {
++        int ret;
+         smiSolarisPrivateData *tmpPrivPtr = reinterpret_cast<smiSolarisPrivateData *>(privateData);
+         fflush(NULL);
+         FWRITE("1", 1, 1, tmpPrivPtr->fh_doReq);
+         fflush(NULL);
+-        fseek(tmpPrivPtr->fh_data, 0L, 0);
++        ret = fseek(tmpPrivPtr->fh_data, 0L, 0);
++        if (ret < 0)
++            throw std::exception();
+     }
+ 
+     void SmiArchStrategy::finish()
+-- 
+2.14.3
+

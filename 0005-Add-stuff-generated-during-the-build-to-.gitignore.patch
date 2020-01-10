@@ -1,0 +1,40 @@
+From eeac9f5d7b51f1ce593d7456a598d154bfeca035 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 14:48:22 -0400
+Subject: [PATCH 05/22] Add stuff generated during the build to .gitignore
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ .gitignore | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index 09ca33f4fdc..eda4ea6e975 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -46,3 +46,22 @@ po/remove-potcdate.sin
+ # docker build process
+ /Dockerfile
+ /*-entrypoint.sh
++
++AUTHORS
++ChangeLog
++Makefile
++config.log
++config.status
++libsmbios-*.tar.*
++*.spec
++*.pc
++libtool
++out/
++pkg/pkginfo
++pkg/test-driver
++po/POTFILES
++po/en@boldquot.insert-header
++po/en@quot.insert-header
++po/remove-potcdate.sed
++po/stamp-po
++src/python/_vars.py
+-- 
+2.14.3
+

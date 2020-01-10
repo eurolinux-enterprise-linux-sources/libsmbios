@@ -1,0 +1,115 @@
+From 05125ce636ff0f93ae6a3d6f44032b4053324ff7 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 13:04:26 -0400
+Subject: [PATCH 07/22] Don't compare signed and unsigned values in loop
+ iterators.
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+-Wextra finds:
+
+src/libsmbios_c/token/token_d4.c: In function ‘_d4_get_string’:
+src/libsmbios_c/token/token_d4.c:168:20: error: comparison between signed and unsigned integer expressions [-Werror=sign-compare]
+     for (int i=0; i<strSize; ++i){
+                    ^
+
+Using signed loop iterators with unsigned final conditions can lead to
+integer overflow and unexpected results, so just make these all
+unsigned.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/smi/smi_obj.c      | 2 +-
+ src/libsmbios_c/smi/smi_password.c | 6 +++---
+ src/libsmbios_c/token/checksum.c   | 4 ++--
+ src/libsmbios_c/token/token_d4.c   | 4 ++--
+ 4 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/src/libsmbios_c/smi/smi_obj.c b/src/libsmbios_c/smi/smi_obj.c
+index 71cb83b0d67..2149020ac86 100644
+--- a/src/libsmbios_c/smi/smi_obj.c
++++ b/src/libsmbios_c/smi/smi_obj.c
+@@ -201,7 +201,7 @@ u8 * dell_smi_obj_make_buffer_frombios_withheader(struct dell_smi_obj *this, u8
+     if(buf)
+     {
+         // write buffer pattern
+-        for (int i=0; i<size+4; i++)
++        for (unsigned int i=0; i<size+4; i++)
+             buf[i] = bufpat[i%4];
+ 
+         // write size of remaining bytes
+diff --git a/src/libsmbios_c/smi/smi_password.c b/src/libsmbios_c/smi/smi_password.c
+index d314b535581..c24906aa2e2 100644
+--- a/src/libsmbios_c/smi/smi_password.c
++++ b/src/libsmbios_c/smi/smi_password.c
+@@ -294,7 +294,7 @@ int verify_password(int which, const char *password_scancodes, u16 *security_key
+ 
+     // copy password into arg
+     if (password_scancodes)
+-        for (int i=0; i<strlen(password_scancodes) && i < sizeof(arg); ++i)
++        for (unsigned int i=0; i<strlen(password_scancodes) && i < sizeof(arg); ++i)
+             ((u8*)arg)[i] = password_scancodes[i];
+ 
+     dell_smi_obj_set_arg(smi, cbARG1, arg[0]);
+@@ -322,11 +322,11 @@ int change_password(int which, const char *oldpw_scancode, const char *newpw_sca
+ 
+     // copy password into arg
+     if (oldpw_scancode)
+-        for (int i=0; i<strlen(oldpw_scancode) && i < sizeof(arg)/2; ++i)
++        for (unsigned int i=0; i<strlen(oldpw_scancode) && i < sizeof(arg)/2; ++i)
+             ((u8*)arg)[i] = oldpw_scancode[i];
+ 
+     if (newpw_scancode)
+-        for (int i=0; i<strlen(newpw_scancode) && i < sizeof(arg)/2; ++i)
++        for (unsigned int i=0; i<strlen(newpw_scancode) && i < sizeof(arg)/2; ++i)
+             ((u8*)arg)[i + sizeof(arg)/2 ] = newpw_scancode[i];
+ 
+     dell_smi_obj_set_arg(smi, cbARG1, arg[0]);
+diff --git a/src/libsmbios_c/token/checksum.c b/src/libsmbios_c/token/checksum.c
+index 76eded5f58d..a10b60bda72 100644
+--- a/src/libsmbios_c/token/checksum.c
++++ b/src/libsmbios_c/token/checksum.c
+@@ -46,7 +46,7 @@ __hidden int update_checksum(const struct cmos_access_obj *c, bool do_update, vo
+     fnprintf(" calculated 0x%x\n", wordRetval);
+ 
+     u32 actualcsum = 0;
+-    for( int i=0; i<data->csumlen; ++i )
++    for( unsigned int i=0; i<data->csumlen; ++i )
+     {
+         u8 byte;
+         int ret = cmos_obj_read_byte(c, &byte, data->indexPort, data->dataPort, data->csumloc+i);
+@@ -70,7 +70,7 @@ __hidden int update_checksum(const struct cmos_access_obj *c, bool do_update, vo
+     {
+         // write new checksum
+         fnprintf("REWRITE CSUM\n");
+-        for( int i=0; i<data->csumlen; ++i )
++        for( unsigned int i=0; i<data->csumlen; ++i )
+         {
+             int ret = cmos_obj_write_byte(c, data->indexPort, data->dataPort, data->csumloc+i, csum[data->csumlen -i -1]);
+             if (ret)
+diff --git a/src/libsmbios_c/token/token_d4.c b/src/libsmbios_c/token/token_d4.c
+index bc46e1a71af..6447114ee0a 100644
+--- a/src/libsmbios_c/token/token_d4.c
++++ b/src/libsmbios_c/token/token_d4.c
+@@ -165,7 +165,7 @@ static char * _d4_get_string(const struct token_obj *t, size_t *len)
+     if (!retval)
+         goto out_err;
+ 
+-    for (int i=0; i<strSize; ++i){
++    for (unsigned int i=0; i<strSize; ++i){
+         fnprintf("read byte %d/%zd\n", i+1, strSize);
+         int ret = cmos_read_byte(retval + i,
+                   cast_struct(t)->indexPort,
+@@ -206,7 +206,7 @@ static int _d4_set_string(const struct token_obj *t, const char *str, size_t siz
+ 
+     memcpy( targetBuffer, str, size < strSize ? size : strSize );
+ 
+-    for (int i=0; i<strSize; ++i){
++    for (unsigned int i=0; i<strSize; ++i){
+         int ret = cmos_write_byte(targetBuffer[i],
+                   cast_struct(t)->indexPort,
+                   cast_struct(t)->dataPort,
+-- 
+2.14.3
+

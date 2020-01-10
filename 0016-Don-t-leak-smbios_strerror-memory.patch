@@ -1,0 +1,86 @@
+From e1d8c422590daf34b364cb1df060b8e7257bd490 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 15:55:46 -0400
+Subject: [PATCH 16/22] Don't leak smbios_strerror() memory.
+
+Covscan noticed:
+
+Error: RESOURCE_LEAK (CWE-772): [#def35]
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_obj.c:310: alloc_fn: Storage is returned from allocation function "smbios_strerror".
+libsmbios-2.3.3/src/libsmbios_c/smbios/smbios.c:78:9: alloc_fn: Storage is returned from allocation function "strdup".
+libsmbios-2.3.3/src/libsmbios_c/smbios/smbios.c:78:9: var_assign: Assigning: "ret" = "strdup(smbios_table_strerror(table))".
+libsmbios-2.3.3/src/libsmbios_c/smbios/smbios.c:83:5: return_alloc: Returning allocated memory "ret".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_obj.c:310: noescape: Resource "smbios_strerror()" is not freed or pointed-to in "fprintf".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_obj.c:310: leaked_storage: Failing to save or free storage allocated by "smbios_strerror()" leaks it.
+
+Error: RESOURCE_LEAK (CWE-772): [#def36]
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_obj.c:311: alloc_fn: Storage is returned from allocation function "smbios_strerror".
+libsmbios-2.3.3/src/libsmbios_c/smbios/smbios.c:78:9: alloc_fn: Storage is returned from allocation function "strdup".
+libsmbios-2.3.3/src/libsmbios_c/smbios/smbios.c:78:9: var_assign: Assigning: "ret" = "strdup(smbios_table_strerror(table))".
+libsmbios-2.3.3/src/libsmbios_c/smbios/smbios.c:83:5: return_alloc: Returning allocated memory "ret".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_obj.c:311: noescape: Resource "smbios_strerror()" is not freed or pointed-to in "strlcat".
+libsmbios-2.3.3/src/libsmbios_c/common/strlcat.c:31:32: noescape: "strlcat(char *, char const *, size_t)" does not free or save its parameter "src".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_obj.c:311: leaked_storage: Failing to save or free storage allocated by "smbios_strerror()" leaks it.
+
+This patch checks that returned allocation and frees it when we're done.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/smbios/smbios.c |  2 +-
+ src/libsmbios_c/smi/smi_obj.c   | 11 ++++++++---
+ src/include/smbios_c/smbios.h   |  2 +-
+ 3 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/src/libsmbios_c/smbios/smbios.c b/src/libsmbios_c/smbios/smbios.c
+index ff09cb1a614..f7b90109136 100644
+--- a/src/libsmbios_c/smbios/smbios.c
++++ b/src/libsmbios_c/smbios/smbios.c
+@@ -69,7 +69,7 @@ struct smbios_struct *smbios_get_next_struct_by_handle(const struct smbios_struc
+     return ret;
+ }
+ 
+-const char *smbios_strerror(const struct smbios_struct *cur)
++char *smbios_strerror(const struct smbios_struct *cur)
+ {
+     char *ret;
+     struct smbios_table *table = smbios_table_factory(SMBIOS_DEFAULTS | SMBIOS_NO_ERR_CLEAR);
+diff --git a/src/libsmbios_c/smi/smi_obj.c b/src/libsmbios_c/smi/smi_obj.c
+index 2149020ac86..3c9a56b170a 100644
+--- a/src/libsmbios_c/smi/smi_obj.c
++++ b/src/libsmbios_c/smi/smi_obj.c
+@@ -304,11 +304,16 @@ out_fail:
+     fnprintf(" out_fail \n");
+     retval = -1;
+     errbuf = smi_get_module_error_buf();
+-    if (errbuf){
++    if (errbuf) {
++        char *smberr = smbios_strerror();
+         fnprintf("error: %s\n", error);
+         strlcpy(errbuf, error, ERROR_BUFSIZE);
+-        fnprintf("smbios_strerror: %s\n", smbios_strerror());
+-        strlcat(errbuf, smbios_strerror(), ERROR_BUFSIZE);
++        if (smberr)
++        {
++            fnprintf("smbios_strerror: %s\n", smberr);
++            strlcat(errbuf, smberr, ERROR_BUFSIZE);
++            free(smberr);
++        }
+     }
+ 
+ out:
+diff --git a/src/include/smbios_c/smbios.h b/src/include/smbios_c/smbios.h
+index 4e1d631ca81..eb3b503204a 100644
+--- a/src/include/smbios_c/smbios.h
++++ b/src/include/smbios_c/smbios.h
+@@ -127,7 +127,7 @@ LIBSMBIOS_C_DLL_SPEC const char * smbios_struct_get_string_number(const struct s
+  * Can return 0. The buffer used is guaranteed to be valid until the next call
+  * to any smbios_* function. Copy the contents if you need it longer.
+  */
+-LIBSMBIOS_C_DLL_SPEC const char * smbios_strerror();
++LIBSMBIOS_C_DLL_SPEC char * smbios_strerror();
+ 
+ EXTERN_C_END;
+ 
+-- 
+2.14.3
+

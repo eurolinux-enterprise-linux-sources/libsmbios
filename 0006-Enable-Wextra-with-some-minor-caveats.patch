@@ -1,0 +1,49 @@
+From 5363df45176e6052ab828432dc47258d149489ff Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 12:48:41 -0400
+Subject: [PATCH 06/22] Enable -Wextra, with some minor caveats.
+
+In recent gcc, -Wextra gives you a lot of pretty good info, so it's
+worth using.  It also has some not very useful things.
+
+This patch enables -Wextra and then turns off some of the more annoying,
+less concretely a problem cases.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/bin/smbios-get-ut-data.c | 2 ++
+ Makefile.am                  | 4 ++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/src/bin/smbios-get-ut-data.c b/src/bin/smbios-get-ut-data.c
+index 0387326181d..11875941594 100644
+--- a/src/bin/smbios-get-ut-data.c
++++ b/src/bin/smbios-get-ut-data.c
+@@ -177,7 +177,9 @@ void dumpMem( const char *fn, size_t offset, size_t len)
+     memory_read(buf, offset, len);
+     int recs = fwrite(buf, len, 1, fd);
+     if (recs != 1)
++    {
+         ; // nada
++    }
+     free(buf);
+     fclose(fd);
+ }
+diff --git a/Makefile.am b/Makefile.am
+index 7648132d968..8b9f4185bc1 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -18,8 +18,8 @@ lib_LTLIBRARIES=
+ TESTS=
+ 
+ AM_CPPFLAGS = -I$(top_builddir)/out/include -I$(top_srcdir)/src/include -DLIBSMBIOS_LOCALEDIR=\"$(localedir)\"
+-AM_CFLAGS = -Wall -fPIC
+-AM_CXXFLAGS = -Wall -fPIC
++AM_CFLAGS = -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -fPIC
++AM_CXXFLAGS = -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -fPIC
+ AM_LDADD = $(LIBINTL)
+ 
+ AM_LDFLAGS = -L$(top_builddir)/out/
+-- 
+2.14.3
+

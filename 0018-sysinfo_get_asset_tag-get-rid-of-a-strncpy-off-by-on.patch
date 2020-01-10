@@ -1,0 +1,67 @@
+From dce238da3376ff556e93b892349e5caea4c7c5b5 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 16:36:30 -0400
+Subject: [PATCH 18/22] sysinfo_get_asset_tag(): get rid of a strncpy() off by
+ one error.
+
+Covscan found:
+
+Error: BUFFER_SIZE (CWE-120): [#def39]
+libsmbios-2.3.3/src/libsmbios_c/system_info/asset_tag.c:143: buffer_size: Calling strncpy with a source string whose length (13 chars) is greater than or equal to the size argument (13) will fail to null-terminate "assetTag".
+
+In which case the buffer would not be correctly terminated.  This loop
+also returns the /first/ zero-length entry instead of trying additional
+methods, as the comment at the top implies it should do.
+
+This patch simplifies the loop, and simply returns
+strdup(ASSET_TAG_NOT_SPECIFIED) in the case where we find no useful
+response.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/system_info/asset_tag.c | 25 ++++++++++---------------
+ 1 file changed, 10 insertions(+), 15 deletions(-)
+
+diff --git a/src/libsmbios_c/system_info/asset_tag.c b/src/libsmbios_c/system_info/asset_tag.c
+index da216b18943..0e865947d41 100644
+--- a/src/libsmbios_c/system_info/asset_tag.c
++++ b/src/libsmbios_c/system_info/asset_tag.c
+@@ -128,25 +128,20 @@ LIBSMBIOS_C_DLL_SPEC char *sysinfo_get_asset_tag()
+         // first function to return non-zero id with strlen()>0 wins.
+         assetTag = DellAssetTagFunctions[i].f_ptr ();
+         fnprintf("got result: %p\n", assetTag);
+-        if (assetTag)
++        if (!assetTag)
++            continue;
++
++        strip_trailing_whitespace(assetTag);
++        if (!strlen(assetTag))
+         {
+-            strip_trailing_whitespace(assetTag);
+-            if (!strlen(assetTag))
+-            {
+-                fnprintf("string is zero len, returning as not specified\n");
+-                /*
+-                 * In case one of the function returns an empty string (zero len),
+-                 * we would be returning the value "Not Specified" to the caller.
+-                 */
+-                assetTag = realloc(assetTag, ASSET_TAG_NOT_SPECIFIED_LEN);
+-                if (assetTag)
+-                    strncpy(assetTag, ASSET_TAG_NOT_SPECIFIED, ASSET_TAG_NOT_SPECIFIED_LEN - 1);
+-                goto out;
+-            }
++            fnprintf("string is zero len, not using it\n");
++            free(assetTag);
++            assetTag = NULL;
+         }
+     }
+ 
+-out:
++    if (!assetTag)
++        assetTag = strdup(ASSET_TAG_NOT_SPECIFIED);
+     return assetTag;
+ }
+ 
+-- 
+2.14.3
+

@@ -1,0 +1,90 @@
+From f0898fec9f637bd6fe05cf9445c7bc92ef8ce221 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 12:27:52 -0400
+Subject: [PATCH 08/22] Fix some missing error checks that covscan found.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/bin/smbios-get-ut-data.c          | 38 ++++++++++++++++++++++++++++-------
+ src/libsmbios_c/system_info/up_flag.c |  7 ++++++-
+ 2 files changed, 37 insertions(+), 8 deletions(-)
+
+diff --git a/src/bin/smbios-get-ut-data.c b/src/bin/smbios-get-ut-data.c
+index 11875941594..4bdf102a7dc 100644
+--- a/src/bin/smbios-get-ut-data.c
++++ b/src/bin/smbios-get-ut-data.c
+@@ -114,6 +114,11 @@ void dumpCmosIndexPort(const char *fn, u32 indexPort, u32 dataPort)
+ 
+     // ensure file exists
+     FILE *fd = fopen(cmosDumpFile, "a+");
++    if (!fd)
++    {
++        printf( _("error opening dump file \"%s\": %m\n"), cmosDumpFile);
++        return;
++    }
+     fclose(fd);
+ 
+     cmos = cmos_obj_factory(CMOS_GET_SINGLETON);
+@@ -172,15 +177,34 @@ out:
+ 
+ void dumpMem( const char *fn, size_t offset, size_t len)
+ {
+-    FILE *fd = fopen( fn, "w+" );
+-    u8 *buf = calloc(1, len);
+-    memory_read(buf, offset, len);
++    FILE *fd = NULL;
++    u8 *buf = NULL;
++    int ret;
++
++    fd = fopen( fn, "w+" );
++    if (!fd)
++    {
++        printf( _("error opening dump file \"%s\": %m\n"), fn);
++        return;
++    }
++    buf = calloc(1, len);
++    if (!buf)
++    {
++        printf( _("could not allocate memory: %m\n"));
++        goto err;
++    }
++    ret = memory_read(buf, offset, len);
++    if (ret < 0)
++    {
++        printf( _("could not read from memory: %m\n"));
++        goto err;
++    }
+     int recs = fwrite(buf, len, 1, fd);
+     if (recs != 1)
+-    {
+-        ; // nada
+-    }
+-    free(buf);
++        printf( _("could not write to \"%s\": %m\n"), fn);
++err:
++    if (buf)
++        free(buf);
+     fclose(fd);
+ }
+ 
+diff --git a/src/libsmbios_c/system_info/up_flag.c b/src/libsmbios_c/system_info/up_flag.c
+index 77298410386..e52462d896e 100644
+--- a/src/libsmbios_c/system_info/up_flag.c
++++ b/src/libsmbios_c/system_info/up_flag.c
+@@ -57,7 +57,12 @@ __hidden bool get_up_offset_and_flag(struct up_info *up)
+         offset = memory_search( UP_ANCHOR, UP_ANCHOR_LEN,  0xF0000UL, 0xFFFFFUL, 1);
+ 
+     if (offset!=0 && offset!=-1)
+-        memory_read(up, (u64)offset, sizeof(*up));
++    {
++        int ret;
++        ret = memory_read(up, (u64)offset, sizeof(*up));
++        if (ret < 0)
++            return false;
++    }
+ 
+     fnprintf("offset 0x%llx", offset);
+     return (offset!=0 && offset!=-1);
+-- 
+2.14.3
+

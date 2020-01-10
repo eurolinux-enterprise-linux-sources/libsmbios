@@ -1,0 +1,35 @@
+From 3806e407b20e8d1de61d52559ad035492273b962 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 15:23:46 -0400
+Subject: [PATCH 13/22] Fix a wrong conditional.
+
+Covscan noticed:
+Error: CONSTANT_EXPRESSION_RESULT (CWE-398): [#def22]
+libsmbios-2.3.3/src/libsmbios_c/smbios/smbios_obj.c:442: always_true_or: The "or" condition "tempTEP->major_ver != 2 || tempTEP->major_ver != 3" will always be true because "tempTEP->major_ver" cannot be equal to two different values at the same time, so it must be not equal to at least one of them.
+
+This code cannot possibly be right, so I'm assuming the idea is to fail
+if it's not either 2 or 3.
+
+This patch changes it to check that.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/smbios/smbios_obj.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/libsmbios_c/smbios/smbios_obj.c b/src/libsmbios_c/smbios/smbios_obj.c
+index 0a029a2734e..3cb4bd0526f 100644
+--- a/src/libsmbios_c/smbios/smbios_obj.c
++++ b/src/libsmbios_c/smbios/smbios_obj.c
+@@ -432,7 +432,7 @@ bool __hidden validate_smbios_tep( const struct smbios_table_entry_point *tempTE
+     fnprintf("SMBIOS TEP csum %d.\n", (int)checksum);
+     if(checksum) // Checking entry point structure checksum
+         retval = false;  // validation failed
+-    if(! (tempTEP->major_ver!=0x02 || tempTEP->major_ver!=0x03) ) // Checking smbios major version
++    if(tempTEP->major_ver != 0x02 && tempTEP->major_ver != 0x03) // Checking smbios major version
+         retval = false;  // validation failed
+ 
+     // Entry Point Length field is at least 0x1f.
+-- 
+2.14.3
+

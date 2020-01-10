@@ -1,0 +1,198 @@
+From bb3d555d99f4015be2a517e3267c0cf6dc0021f9 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 15:20:58 -0400
+Subject: [PATCH 12/22] Simplify smbios_table_free(), token_table_free(), and
+ cmos_obj_free()
+
+Covscan noticed:
+Error: BAD_FREE (CWE-763): [#def46]
+libsmbios-2.3.3/src/libsmbios_c/smbios/smbios_obj.c:80: address_assign: Assigning: "toReturn" = "&singleton".
+libsmbios-2.3.3/src/libsmbios_c/smbios/smbios_obj.c:87: incorrect_free: "init_smbios_struct" frees incorrect pointer "toReturn".
+libsmbios-2.3.3/src/libsmbios_c/smbios/smbios_obj.c:370:5: freed_arg: "smbios_table_free" frees parameter "m".
+libsmbios-2.3.3/src/libsmbios_c/smbios/smbios_obj.c:111:9: freed_arg: "_smbios_table_free" frees parameter "m".
+libsmbios-2.3.3/src/libsmbios_c/smbios/smbios_obj.c:330:5: freed_arg: "free" frees parameter "this".
+
+Covscan noticed:
+Error: BAD_FREE (CWE-763): [#def46]
+libsmbios-2.3.3/src/libsmbios_c/token/token_obj.c:82: address_assign: Assigning: "toReturn" = "&singleton".
+libsmbios-2.3.3/src/libsmbios_c/token/token_obj.c:95: incorrect_free: "token_table_free" frees incorrect pointer "toReturn".
+libsmbios-2.3.3/src/libsmbios_c/token/token_obj.c:109:9: freed_arg: "_token_table_free" frees parameter "m".
+libsmbios-2.3.3/src/libsmbios_c/token/token_obj.c:249:5: freed_arg: "free" frees parameter "this".
+
+Error: BAD_FREE (CWE-763): [#def1]
+libsmbios-2.3.3/src/libsmbios_c/cmos/cmos_obj.c:74: address_assign: Assigning: "toReturn" = "&singleton".
+libsmbios-2.3.3/src/libsmbios_c/cmos/cmos_obj.c:95: incorrect_free: "free" frees incorrect pointer "toReturn".
+
+I don't think there's any way to actually hit that path, but there's
+also no reason the code needs to have the extra level of indirection for
+_smbios_table_free(), _token_table_free(), or _cmos_obj_free(), so just
+simplify those out of existence.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/cmos/cmos_obj.c     | 25 +++++++++----------------
+ src/libsmbios_c/smbios/smbios_obj.c | 37 +++++++++++++++----------------------
+ src/libsmbios_c/token/token_obj.c   | 24 ++++++++++--------------
+ 3 files changed, 34 insertions(+), 52 deletions(-)
+
+diff --git a/src/libsmbios_c/cmos/cmos_obj.c b/src/libsmbios_c/cmos/cmos_obj.c
+index 0b6c62544b2..ef145f60d2f 100644
+--- a/src/libsmbios_c/cmos/cmos_obj.c
++++ b/src/libsmbios_c/cmos/cmos_obj.c
+@@ -155,16 +155,19 @@ out:
+     return retval;
+ }
+ 
+-void __hidden _cmos_obj_cleanup(struct cmos_access_obj *m)
++void cmos_obj_free(struct cmos_access_obj *m)
+ {
++    struct callback *ptr = 0;
++    struct callback *next = 0;
++
++    if (!m)
++        return;
++
+     if(m->cleanup)
+         m->cleanup(m);
+-}
+ 
+-void __hidden _cmos_obj_free(struct cmos_access_obj *m)
+-{
+-    struct callback *ptr = 0;
+-    struct callback *next = 0;
++    if (m == &singleton)
++        return;
+ 
+     ptr = m->cb_list_head;
+     // free callback list
+@@ -193,16 +196,6 @@ void __hidden _cmos_obj_free(struct cmos_access_obj *m)
+     free(m);
+ }
+ 
+-void cmos_obj_free(struct cmos_access_obj *m)
+-{
+-    if (!m) goto out;
+-    _cmos_obj_cleanup(m);
+-    if (m != &singleton)
+-        _cmos_obj_free(m);
+-out:
+-    return;
+-}
+-
+ void cmos_obj_register_write_callback(struct cmos_access_obj *m, cmos_write_callback cb_fn, void *userdata, void (*destructor)(void *))
+ {
+     clear_err(m);
+diff --git a/src/libsmbios_c/smbios/smbios_obj.c b/src/libsmbios_c/smbios/smbios_obj.c
+index 2382d9fcd16..0a029a2734e 100644
+--- a/src/libsmbios_c/smbios/smbios_obj.c
++++ b/src/libsmbios_c/smbios/smbios_obj.c
+@@ -104,14 +104,23 @@ out:
+     return toReturn;
+ }
+ 
+-void smbios_table_free(struct smbios_table *m)
++void smbios_table_free(struct smbios_table *this)
+ {
+-    if (!m) goto out;
+-    if (m != &singleton)
+-        _smbios_table_free(m);
++    if (!this || this == &singleton)
++        return;
+ 
+-out:
+-    return;
++    memset(&this->tep, 0, sizeof(this->tep));
++
++    free(this->errstring);
++    this->errstring = 0;
++
++    free(this->table);
++    this->table = 0;
++
++    this->initialized=0;
++
++    memset(this, 0, sizeof(*this)); // big hammer
++    free(this);
+ }
+ 
+ const char *smbios_table_strerror(const struct smbios_table *m)
+@@ -314,22 +323,6 @@ void smbios_table_walk(struct smbios_table *table, void (*fn)(const struct smbio
+  *
+  **************************************************/
+ 
+-void __hidden _smbios_table_free(struct smbios_table *this)
+-{
+-    memset(&this->tep, 0, sizeof(this->tep));
+-
+-    free(this->errstring);
+-    this->errstring = 0;
+-
+-    free(this->table);
+-    this->table = 0;
+-
+-    this->initialized=0;
+-
+-    memset(this, 0, sizeof(*this)); // big hammer
+-    free(this);
+-}
+-
+ int __hidden init_smbios_struct(struct smbios_table *m)
+ {
+     char *errbuf;
+diff --git a/src/libsmbios_c/token/token_obj.c b/src/libsmbios_c/token/token_obj.c
+index 8f6aaac05cd..b5948ae5a86 100644
+--- a/src/libsmbios_c/token/token_obj.c
++++ b/src/libsmbios_c/token/token_obj.c
+@@ -38,7 +38,7 @@
+ 
+ // forward declarations
+ static int init_token_table(struct token_table *);
+-static void _token_table_free(struct token_table *);
++static void _token_table_free_tokens(struct token_table *this);
+ 
+ // static vars
+ static struct token_table singleton; // auto-init to 0
+@@ -101,14 +101,20 @@ out:
+     return toReturn;
+ }
+ 
+-
+ void token_table_free(struct token_table *m)
+ {
+     fnprintf("\n");
+-    if (m && m != &singleton)
+-        _token_table_free(m);
+ 
+     // can do special cleanup for singleton, but none necessary atm
++    if (!m || m == &singleton)
++        return;
++
++    _token_table_free_tokens(m);
++
++    free(m->errstring);
++    m->errstring = 0;
++
++    free(m);
+ }
+ 
+ const char * token_table_strerror(const struct token_table *table)
+@@ -239,16 +245,6 @@ static void _token_table_free_tokens(struct token_table *this)
+     this->list_head = 0;
+ }
+ 
+-static void _token_table_free(struct token_table *this)
+-{
+-    _token_table_free_tokens(this);
+-
+-    free(this->errstring);
+-    this->errstring = 0;
+-
+-    free(this);
+-}
+-
+ void __hidden add_token(struct token_table *t, struct token_obj *o)
+ {
+     struct token_obj *ptr = t->list_head;
+-- 
+2.14.3
+

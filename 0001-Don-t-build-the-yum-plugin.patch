@@ -1,0 +1,26 @@
+From 707a262b5038d48877e30e6e6b0ee08705766160 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Thu, 5 Oct 2017 14:29:17 -0400
+Subject: [PATCH 01/22] Don't build the yum plugin.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ Makefile.am | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index c0bafb802d1..7648132d968 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -41,7 +41,7 @@ endif
+ include src/libsmbios_c/Makefile.am
+ include src/python/Makefile.am
+ include src/py-cli/Makefile.am
+-include src/yum-plugin/Makefile.am
++# include src/yum-plugin/Makefile.am
+ include src/bin/Makefile.am
+ include src/pyunit/Makefile.am
+ 
+-- 
+2.14.3
+

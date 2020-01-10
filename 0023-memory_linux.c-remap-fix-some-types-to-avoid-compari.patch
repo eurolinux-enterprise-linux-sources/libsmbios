@@ -1,0 +1,62 @@
+From 2928a5f3e60a3e9927fbaacde5ddcd5e289eb4b4 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Wed, 14 Feb 2018 13:16:19 -0500
+Subject: [PATCH] memory_linux.c:remap() fix some types to avoid comparison
+ sign mismatches
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+struct linux_data, remap(), and trycopy() have types that don't have
+matching signs for no good reason, and this is noticed if you build with
+-Wsign-compare (enabled by the quite wonderful -Wextra in recent gcc).
+Right now these are the only thing in the tree that fail with "gcc -Wall
+-Wextra -Werror":
+
+libtool: compile:  gcc -std=gnu99 -DHAVE_CONFIG_H -I. -I.. -I./out/include -I./out/include -I../src/include -DLIBSMBIOS_LOCALEDIR=\"/usr/share/locale\" -I../src/libsmbios_c/common -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -fPIC -fvisibility=hidden -Werror -c ../src/libsmbios_c/system_info/system_info.c  -fPIC -DPIC -o src/libsmbios_c/system_info/.libs/out_libsmbios_c_la-system_info.o
+../src/libsmbios_c/memory/memory_linux.c: In function 'trycopy':
+../src/libsmbios_c/memory/memory_linux.c:134:24: error: comparison between signed and unsigned integer expressions [-Werror=sign-compare]
+     if( length + mmoff > (private_data->mappingSize) )
+                        ^
+and
+
+libtool: compile:  gcc -DHAVE_CONFIG_H -I. -I./out/include -I./out/include -I./src/include -DLIBSMBIOS_LOCALEDIR=\"/usr/local/share/locale\" -I./src/libsmbios_c/common -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -fPIC -fvisibility=hidden -Wall -Werror -Wextra -DLIBSMBIOS_C_ALL_DYN_LINK -MT src/libsmbios_c/memory/out_libsmbios_c_la-memory_linux.lo -MD -MP -MF src/libsmbios_c/memory/.deps/out_libsmbios_c_la-memory_linux.Tpo -c src/libsmbios_c/memory/memory_linux.c  -fPIC -DPIC -o src/libsmbios_c/memory/.libs/out_libsmbios_c_la-memory_linux.o
+src/libsmbios_c/memory/memory_linux.c: In function ‘remap’:
+src/libsmbios_c/memory/memory_linux.c:109:22: error: comparison between signed and unsigned integer expressions [-Werror=sign-compare]
+     if (offset-mmoff == private_data->lastMappedOffset)
+                      ^~
+
+This fixes them to use off_t and size_t as appropriate.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/memory/memory_linux.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/libsmbios_c/memory/memory_linux.c b/src/libsmbios_c/memory/memory_linux.c
+index 1d3a46b5adf..f3054bf7ded 100644
+--- a/src/libsmbios_c/memory/memory_linux.c
++++ b/src/libsmbios_c/memory/memory_linux.c
+@@ -44,8 +44,8 @@ struct linux_data
+     int mem_errno;
+     bool rw;
+     void *lastMapping;
+-    u64 lastMappedOffset;
+-    u64 mappingSize;
++    off_t lastMappedOffset;
++    size_t mappingSize;
+ };
+ 
+ #define READ_MMAP 0
+@@ -98,7 +98,7 @@ static void debug_dump_buffer(const char *fn, const char *s, const u8 *buffer, s
+ #define debug_dump_buffer(...) do {} while(0)
+ #endif
+ 
+-static void remap(struct linux_data *private_data, u64 offset, bool rw)
++static void remap(struct linux_data *private_data, off_t offset, bool rw)
+ {
+     int flags = rw ? PROT_WRITE : PROT_READ;
+     off_t mmoff = offset % private_data->mappingSize;
+-- 
+2.14.3
+

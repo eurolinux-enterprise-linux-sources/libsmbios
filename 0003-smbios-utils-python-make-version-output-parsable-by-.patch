@@ -1,0 +1,254 @@
+From 743df4855c2395cd8797c6e6406c8091d90a9b8b Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Thu, 5 Oct 2017 15:35:45 -0400
+Subject: [PATCH 03/22] smbios-utils-python: make --version output parsable by
+ help2man.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/bin/smbios-battery-ctl    | 3 ++-
+ src/bin/smbios-keyboard-ctl   | 3 ++-
+ src/bin/smbios-lcd-brightness | 5 +++--
+ src/bin/smbios-passwd         | 5 +++--
+ src/bin/smbios-sys-info       | 3 ++-
+ src/bin/smbios-thermal-ctl    | 3 ++-
+ src/bin/smbios-token-ctl      | 5 +++--
+ src/bin/smbios-wakeup-ctl     | 5 +++--
+ src/bin/smbios-wireless-ctl   | 3 ++-
+ 9 files changed, 22 insertions(+), 13 deletions(-)
+ mode change 100644 => 100755 src/bin/smbios-battery-ctl
+ mode change 100644 => 100755 src/bin/smbios-keyboard-ctl
+ mode change 100644 => 100755 src/bin/smbios-lcd-brightness
+ mode change 100644 => 100755 src/bin/smbios-passwd
+ mode change 100644 => 100755 src/bin/smbios-sys-info
+ mode change 100644 => 100755 src/bin/smbios-thermal-ctl
+ mode change 100644 => 100755 src/bin/smbios-token-ctl
+ mode change 100644 => 100755 src/bin/smbios-wakeup-ctl
+ mode change 100644 => 100755 src/bin/smbios-wireless-ctl
+
+diff --git a/src/bin/smbios-battery-ctl b/src/bin/smbios-battery-ctl
+old mode 100644
+new mode 100755
+index bf24f086d1c..7b4f93e57f6
+--- a/src/bin/smbios-battery-ctl
++++ b/src/bin/smbios-battery-ctl
+@@ -20,7 +20,6 @@ import sys
+ 
+ # the following vars are all substituted on install
+ # this bin isnt byte-compiled, so this is ok
+-__VERSION__="uninstalled-version"
+ pythondir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "python")
+ clidir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "py-cli")
+ # end vars
+@@ -33,6 +32,8 @@ import cli
+ from libsmbios_c import token, smbios, smi, system_info as sysinfo, localedir, GETTEXT_PACKAGE
+ from libsmbios_c.trace_decorator import decorate, traceLog, getLog
+ 
++__VERSION__=sysinfo.get_library_version_string()
++
+ locale.setlocale(locale.LC_ALL, '')
+ gettext.install(GETTEXT_PACKAGE, localedir, unicode=1)
+ 
+diff --git a/src/bin/smbios-keyboard-ctl b/src/bin/smbios-keyboard-ctl
+old mode 100644
+new mode 100755
+index 6e12639406e..115535b0f14
+--- a/src/bin/smbios-keyboard-ctl
++++ b/src/bin/smbios-keyboard-ctl
+@@ -22,7 +22,6 @@ import re
+ 
+ # the following vars are all substituted on install
+ # this bin isnt byte-compiled, so this is ok
+-__VERSION__="uninstalled-version"
+ pythondir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "python")
+ clidir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "py-cli")
+ # end vars
+@@ -35,6 +34,8 @@ import cli
+ from libsmbios_c import token, smbios, smi, system_info as sysinfo, localedir, GETTEXT_PACKAGE
+ from libsmbios_c.trace_decorator import decorate, traceLog, getLog
+ 
++__VERSION__=sysinfo.get_library_version_string()
++
+ locale.setlocale(locale.LC_ALL, '')
+ gettext.install(GETTEXT_PACKAGE, localedir, unicode=1)
+ 
+diff --git a/src/bin/smbios-lcd-brightness b/src/bin/smbios-lcd-brightness
+old mode 100644
+new mode 100755
+index 324191945ab..48992177fe2
+--- a/src/bin/smbios-lcd-brightness
++++ b/src/bin/smbios-lcd-brightness
+@@ -21,7 +21,6 @@ import traceback
+ 
+ # the following vars are all substituted on install
+ # this bin isnt byte-compiled, so this is ok
+-__VERSION__="uninstalled-version"
+ pythondir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "python")
+ clidir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "py-cli")
+ # end vars
+@@ -31,9 +30,11 @@ sys.path.insert(0,pythondir)
+ sys.path.insert(0,clidir)
+ 
+ import cli
+-from libsmbios_c import smi, token, localedir, GETTEXT_PACKAGE
++from libsmbios_c import smi, token, localedir, GETTEXT_PACKAGE, system_info as sysinfo
+ from libsmbios_c.trace_decorator import decorate, traceLog, getLog
+ 
++__VERSION__=sysinfo.get_library_version_string()
++
+ locale.setlocale(locale.LC_ALL, '')
+ gettext.install(GETTEXT_PACKAGE, localedir, unicode=1)
+ 
+diff --git a/src/bin/smbios-passwd b/src/bin/smbios-passwd
+old mode 100644
+new mode 100755
+index bdfaae8e15c..db7e2860199
+--- a/src/bin/smbios-passwd
++++ b/src/bin/smbios-passwd
+@@ -20,7 +20,6 @@ import traceback
+ 
+ # the following vars are all substituted on install
+ # this bin isnt byte-compiled, so this is ok
+-__VERSION__="uninstalled-version"
+ pythondir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "python")
+ clidir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "py-cli")
+ # end vars
+@@ -30,9 +29,11 @@ sys.path.insert(0,pythondir)
+ sys.path.insert(0,clidir)
+ 
+ import cli
+-from libsmbios_c import smi, localedir, GETTEXT_PACKAGE
++from libsmbios_c import smi, localedir, GETTEXT_PACKAGE, system_info as sysinfo
+ from libsmbios_c.trace_decorator import decorate, traceLog, getLog
+ 
++__VERSION__=sysinfo.get_library_version_string()
++
+ locale.setlocale(locale.LC_ALL, '')
+ gettext.install(GETTEXT_PACKAGE, localedir, unicode=1)
+ 
+diff --git a/src/bin/smbios-sys-info b/src/bin/smbios-sys-info
+old mode 100644
+new mode 100755
+index cba8e3b7599..d9c0732f2fa
+--- a/src/bin/smbios-sys-info
++++ b/src/bin/smbios-sys-info
+@@ -20,7 +20,6 @@ import exceptions
+ 
+ # the following vars are all substituted on install
+ # this bin isnt byte-compiled, so this is ok
+-__VERSION__="uninstalled-version"
+ pythondir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "python")
+ clidir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "py-cli")
+ # end vars
+@@ -33,6 +32,8 @@ import cli
+ from  libsmbios_c import system_info as sysinfo, smbios, localedir, GETTEXT_PACKAGE
+ from libsmbios_c.trace_decorator import decorate, traceLog, getLog
+ 
++__VERSION__=sysinfo.get_library_version_string()
++
+ locale.setlocale(locale.LC_ALL, '')
+ gettext.install(GETTEXT_PACKAGE, localedir, unicode=1)
+ 
+diff --git a/src/bin/smbios-thermal-ctl b/src/bin/smbios-thermal-ctl
+old mode 100644
+new mode 100755
+index aebd4d1223e..18bba2a784a
+--- a/src/bin/smbios-thermal-ctl
++++ b/src/bin/smbios-thermal-ctl
+@@ -20,7 +20,6 @@ import sys
+ 
+ # the following vars are all substituted on install
+ # this bin isnt byte-compiled, so this is ok
+-__VERSION__="uninstalled-version"
+ pythondir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "python")
+ clidir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "py-cli")
+ # end vars
+@@ -33,6 +32,8 @@ import cli
+ from libsmbios_c import token, smbios, smi, system_info as sysinfo, localedir, GETTEXT_PACKAGE
+ from libsmbios_c.trace_decorator import decorate, traceLog, getLog
+ 
++__VERSION__=sysinfo.get_library_version_string()
++
+ locale.setlocale(locale.LC_ALL, '')
+ gettext.install(GETTEXT_PACKAGE, localedir, unicode=1)
+ 
+diff --git a/src/bin/smbios-token-ctl b/src/bin/smbios-token-ctl
+old mode 100644
+new mode 100755
+index d64a3d914d2..6d9a27b0214
+--- a/src/bin/smbios-token-ctl
++++ b/src/bin/smbios-token-ctl
+@@ -25,7 +25,6 @@ import traceback
+ 
+ # the following vars are all substituted on install
+ # this bin isnt byte-compiled, so this is ok
+-__VERSION__="uninstalled-version"
+ pythondir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "python")
+ clidir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "py-cli")
+ # end vars
+@@ -35,9 +34,11 @@ sys.path.insert(0,pythondir)
+ sys.path.insert(0,clidir)
+ 
+ import cli
+-from libsmbios_c import token, localedir, GETTEXT_PACKAGE, pkgdatadir
++from libsmbios_c import token, localedir, GETTEXT_PACKAGE, pkgdatadir, system_info as sysinfo
+ from libsmbios_c.trace_decorator import decorate, traceLog, getLog
+ 
++__VERSION__=sysinfo.get_library_version_string()
++
+ locale.setlocale(locale.LC_ALL, '')
+ gettext.install(GETTEXT_PACKAGE, localedir, unicode=1)
+ 
+diff --git a/src/bin/smbios-wakeup-ctl b/src/bin/smbios-wakeup-ctl
+old mode 100644
+new mode 100755
+index da38f9ea1ad..c4c19ff499e
+--- a/src/bin/smbios-wakeup-ctl
++++ b/src/bin/smbios-wakeup-ctl
+@@ -22,7 +22,6 @@ import traceback
+ 
+ # the following vars are all substituted on install
+ # this bin isnt byte-compiled, so this is ok
+-__VERSION__="uninstalled-version"
+ pythondir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "python")
+ clidir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "py-cli")
+ # end vars
+@@ -32,9 +31,11 @@ sys.path.insert(0,pythondir)
+ sys.path.insert(0,clidir)
+ 
+ import cli
+-from libsmbios_c import token, localedir, GETTEXT_PACKAGE
++from libsmbios_c import token, localedir, GETTEXT_PACKAGE, system_info as sysinfo
+ from libsmbios_c.trace_decorator import decorate, traceLog, getLog
+ 
++__VERSION__=sysinfo.get_library_version_string()
++
+ locale.setlocale(locale.LC_ALL, '')
+ gettext.install(GETTEXT_PACKAGE, localedir, unicode=1)
+ 
+diff --git a/src/bin/smbios-wireless-ctl b/src/bin/smbios-wireless-ctl
+old mode 100644
+new mode 100755
+index 66650a12512..ca277bcca5b
+--- a/src/bin/smbios-wireless-ctl
++++ b/src/bin/smbios-wireless-ctl
+@@ -20,7 +20,6 @@ import traceback
+ 
+ # the following vars are all substituted on install
+ # this bin isnt byte-compiled, so this is ok
+-__VERSION__="uninstalled-version"
+ pythondir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "python")
+ clidir=os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), "..", "py-cli")
+ # end vars
+@@ -33,6 +32,8 @@ import cli
+ from libsmbios_c import token, smbios, smi, system_info as sysinfo, localedir, GETTEXT_PACKAGE
+ from libsmbios_c.trace_decorator import decorate, traceLog, getLog
+ 
++__VERSION__=sysinfo.get_library_version_string()
++
+ locale.setlocale(locale.LC_ALL, '')
+ gettext.install(GETTEXT_PACKAGE, localedir, unicode=1)
+ 
+-- 
+2.14.3
+

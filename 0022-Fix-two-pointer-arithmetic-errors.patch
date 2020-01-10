@@ -1,0 +1,50 @@
+From ea2c72cace1bc67250997c4f8c58fca4f395400d Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 16:56:37 -0400
+Subject: [PATCH 22/22] Fix two pointer arithmetic errors.
+
+Covscan noticed:
+Error: SIZEOF_MISMATCH (CWE-398): [#def44]
+libsmbios-2.3.3/src/libsmbios_c/token/token_d4.c:321: suspicious_pointer_arithmetic: Adding "5UL /* sizeof (*token) */" to pointer "token" of type "struct indexed_io_token *" is suspicious because adding an integral value to this pointer automatically scales that value by the size, 5 bytes, of the pointed-to type, "struct indexed_io_token".  Most likely, "sizeof (*token)" is extraneous and should be replaced with 1.
+
+Error: SIZEOF_MISMATCH (CWE-398): [#def45]
+libsmbios-2.3.3/src/libsmbios_c/token/token_da.c:212: suspicious_pointer_arithmetic: Adding "6UL /* sizeof (*token) */" to pointer "token" of type "struct calling_interface_token *" is suspicious because adding an integral value to this pointer automatically scales that value by the size, 6 bytes, of the pointed-to type, "struct calling_interface_token".  Most likely, "sizeof (*token)" is extraneous and should be replaced with 1.
+
+It's right, both of these are checking if they're past the last element,
+so 1 should be used.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/token/token_d4.c | 2 +-
+ src/libsmbios_c/token/token_da.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/libsmbios_c/token/token_d4.c b/src/libsmbios_c/token/token_d4.c
+index 6447114ee0a..2659721360a 100644
+--- a/src/libsmbios_c/token/token_d4.c
++++ b/src/libsmbios_c/token/token_d4.c
+@@ -318,7 +318,7 @@ int __hidden add_d4_tokens(struct token_table *table)
+                 continue;
+             }
+ 
+-            if ( (void* )(token + sizeof(*token) ) > (void *)(d4_struct + d4_struct->length ))
++            if ( (void *)(token + 1) > (void *)(d4_struct + d4_struct->length))
+             {
+                 fnprintf("\n");
+                 fnprintf("\n");
+diff --git a/src/libsmbios_c/token/token_da.c b/src/libsmbios_c/token/token_da.c
+index b1832a1aab0..5f80bea9ee1 100644
+--- a/src/libsmbios_c/token/token_da.c
++++ b/src/libsmbios_c/token/token_da.c
+@@ -209,7 +209,7 @@ int __hidden add_da_tokens(struct token_table *table)
+                 continue;
+             }
+ 
+-            if ( (void* )(token + sizeof(*token) ) > (void *)(da_struct + da_struct->length ))
++            if ( (void *)(token + 1) > (void *)(da_struct + da_struct->length))
+             {
+                 fnprintf("\n");
+                 fnprintf("\n");
+-- 
+2.14.3
+

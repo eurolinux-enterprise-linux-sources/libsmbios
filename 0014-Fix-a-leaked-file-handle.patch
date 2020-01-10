@@ -1,0 +1,52 @@
+From b734de6ee0e39176d3f3f63ff20ba70c87d536af Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 15:26:50 -0400
+Subject: [PATCH 14/22] Fix a leaked file handle.
+
+Covscan noticed:
+
+Error: RESOURCE_LEAK (CWE-772): [#def34]
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_linux.c:260: alloc_fn: Storage is returned from allocation function "open_request_file".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_linux.c:191:5: alloc_fn: Storage is returned from allocation function "fopen".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_linux.c:191:5: var_assign: Assigning: "fd" = "fopen(fn, "wb")".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_linux.c:193:9: noescape: Resource "fd" is not freed or pointed-to in function "fileno".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_linux.c:195:9: noescape: Resource "fd" is not freed or pointed-to in function "fwrite".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_linux.c:199:5: return_alloc: Returning allocated memory "fd".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_linux.c:260: var_assign: Assigning: "fd" = storage returned from "open_request_file()".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_linux.c:287: noescape: Resource "fd" is not freed or pointed-to in "trigger_smi".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_linux.c:148:33: noescape: "trigger_smi(FILE *)" does not free or save its parameter "fd".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_linux.c:294: noescape: Resource "fd" is not freed or pointed-to in "fileno".
+libsmbios-2.3.3/src/libsmbios_c/smi/smi_linux.c:316: leaked_storage: Variable "fd" going out of scope leaks the storage it points to.
+
+And right it is, so this patch closes that file at the appropriate time.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/smi/smi_linux.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/libsmbios_c/smi/smi_linux.c b/src/libsmbios_c/smi/smi_linux.c
+index f810b43e699..46ad888282d 100644
+--- a/src/libsmbios_c/smi/smi_linux.c
++++ b/src/libsmbios_c/smi/smi_linux.c
+@@ -90,7 +90,7 @@ out:
+ u32 __hidden set_phys_buf_size(u32 newsize)
+ {
+     char fn[bufsize] = {0,};
+-    FILE *fd = 0;
++    FILE *fd = NULL;
+     char linebuf[bufsize] = {0,};
+     u32 phys_buf_addr=0;
+ 
+@@ -299,6 +299,8 @@ int __hidden LINUX_dell_smi_obj_execute(struct dell_smi_obj *this)
+     // update smi buffer
+     copy_phys_bufs(this, kernel_buf, physaddr, FROM_KERNEL_BUF);
+ 
++    fclose(fd);
++
+     retval = 0;
+     goto out;
+ 
+-- 
+2.14.3
+

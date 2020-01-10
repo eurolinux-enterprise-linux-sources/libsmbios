@@ -1,0 +1,40 @@
+From f4b6d774fd672c4913384e69ce1f49e448771d6e Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Fri, 2 Jun 2017 16:40:44 -0400
+Subject: [PATCH 19/22] sysinfo_get_dell_oem_system_id(): don't look at the
+ wrong array.
+
+Covscan noticed:
+Error: OVERRUN (CWE-119): [#def40]
+libsmbios-2.3.3/src/libsmbios_c/system_info/id_byte.c:219: assignment: Assigning: "numEntries" = "5".
+libsmbios-2.3.3/src/libsmbios_c/system_info/id_byte.c:223: cond_at_most: Checking "i < numEntries" implies that "i" may be up to 4 on the true branch.
+libsmbios-2.3.3/src/libsmbios_c/system_info/id_byte.c:225: overrun-local: Overrunning array "DellIdByteFunctions" of 4 16-byte elements at element index 4 (byte offset 64) using index "i" (which evaluates to 4).
+
+What it didn't notice is that DellIdByteFunctions is the wrong array
+entirely, which is why it's the wrong offset.  It should really notice
+that.  Oh well.
+
+Anyway, this patch makes it use the correct array.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/system_info/id_byte.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/libsmbios_c/system_info/id_byte.c b/src/libsmbios_c/system_info/id_byte.c
+index 6ea102185a8..52dd3e5a2d6 100644
+--- a/src/libsmbios_c/system_info/id_byte.c
++++ b/src/libsmbios_c/system_info/id_byte.c
+@@ -222,7 +222,8 @@ LIBSMBIOS_C_DLL_SPEC int sysinfo_get_dell_oem_system_id()
+     sysinfo_clearerr();
+     for (int i = 0; i < numEntries; ++i)
+     {
+-        fnprintf("calling id_byte function: %s\n", DellIdByteFunctions[i].name);
++        fnprintf("calling id_byte function: %s\n",
++                 DellOemIdByteFunctions[i].name);
+         // first function to return non-zero id wins.
+         systemId = DellOemIdByteFunctions[i].f_ptr ();
+ 
+-- 
+2.14.3
+

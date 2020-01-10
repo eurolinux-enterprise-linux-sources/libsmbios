@@ -1,0 +1,48 @@
+# BUILD OUTPUT
+*.o
+*.lo
+.dirstamp
+*.la
+.libs
+.deps
+
+# python compiled
+*.pyc
+
+# compiled po
+*.gmo
+
+# autogen files
+configure
+aclocal.m4
+Makefile.in
+ABOUT-NLS
+INSTALL
+autom4te.cache/
+m4/
+pkg/compile
+pkg/py-compile
+pkg/config.guess
+pkg/config.h.in
+pkg/config.h.in~
+pkg/config.rpath
+pkg/config.sub
+pkg/depcomp
+pkg/install-sh
+pkg/ltmain.sh
+pkg/missing
+pkg/mkinstalldirs
+pkg/mkinstalldirs~
+po/Makefile.in.in
+po/Makevars.template
+po/Rules-quot
+po/boldquot.sed
+po/en@boldquot.header
+po/en@quot.header
+po/insert-header.sin
+po/quot.sed
+po/remove-potcdate.sin
+
+# docker build process
+/Dockerfile
+/*-entrypoint.sh
