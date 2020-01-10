@@ -1,0 +1,25 @@
+From 0b08d3710ba8c98f22a9cd090e8385789f0ea34b Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Wed, 14 Feb 2018 14:15:26 -0500
+Subject: [PATCH] Get rid of a bad debug print coverity found.
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/memory/memory_linux.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/src/libsmbios_c/memory/memory_linux.c b/src/libsmbios_c/memory/memory_linux.c
+index 7cc30f677ae..6737f2127fa 100644
+--- a/src/libsmbios_c/memory/memory_linux.c
++++ b/src/libsmbios_c/memory/memory_linux.c
+@@ -301,7 +301,6 @@ out_fail:
+         strlcat(errbuf, _("\nThe OS Error string was: "), ERROR_BUFSIZE);
+         fixed_strerror(errno, errbuf, ERROR_BUFSIZE);
+     }
+-    fnprintf(" errbuf ->%p (%zd) '%s'\n", errbuf, strlen(errbuf), errbuf);
+     linux_free(m);
+     retval = -1;
+ 
+-- 
+2.14.3
+

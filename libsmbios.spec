@@ -10,13 +10,13 @@
 
 Name: libsmbios
 Version: 2.3.3
-Release: 6%{?dist}
+Release: 8%{?dist}
 License: GPLv2+ or OSL 2.1
-Summary: Libsmbios C/C++ shared libraries
+Summary: Libsmbios C shared libraries
 Group: System Environment/Libraries
 URL: https://github.com/dell/libsmbios
 Buildroot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires: strace libxml2-devel gcc-c++ gettext git doxygen
+BuildRequires: strace libxml2-devel gettext git doxygen
 BuildRequires: valgrind cppunit hardlink pkgconfig python-devel
 BuildRequires: autoconf gettext-devel automake libtool help2man
 
@@ -48,6 +48,11 @@ Patch0020: 0020-dell_encode_service_tag-remove-conditionals-that-can.patch
 Patch0021: 0021-token.c-don-t-leak-allocated-token-tables.patch
 Patch0022: 0022-Fix-two-pointer-arithmetic-errors.patch
 Patch0023: 0023-memory_linux.c-remap-fix-some-types-to-avoid-compari.patch
+Patch0024: 0024-Get-rid-of-a-bad-debug-print-coverity-found.patch
+Patch0025: 0025-smbios_strerror-always-return-a-new-allocation.patch
+Patch0026: 0026-._get_id-don-t-promote-u16-int-u16.patch
+Patch0027: 0027-slightly-better-token-debugging-information.patch
+Patch0028: 0028-libsmbios_c-use-token_table_free-at-more-places.patch
 
 %description
 Libsmbios is a library and utilities that can be used by client programs to get
@@ -135,7 +140,6 @@ chmod +x ./configure
 %configure
 
 mkdir -p out/libsmbios_c
-mkdir -p out/libsmbios_c++
 make CFLAGS="-Werror" %{?_smp_mflags} 2>&1 | tee build-%{_arch}.log
 
 echo \%doc _build/build-%{_arch}.log > buildlogs.txt
@@ -163,7 +167,7 @@ popd
 runtest() {
     mkdir _$1$2
     pushd _$1$2
-    ../configure
+    ../%configure
     make -e $1 CFLAGS="$CFLAGS -DDEBUG_OUTPUT_ALL" 2>&1 | tee $1$2.log
     touch -r ../configure.ac $1$2-%{_arch}.log
     make -e $1 2>&1 | tee $1$2.log
@@ -203,9 +207,8 @@ cp -v $TOPDIR/_build/out/*.8 %{buildroot}/%{_mandir}/man8/
 cp -a $TOPDIR/src/include/*  %{buildroot}/%{_includedir}/
 cp -a out/public-include/*  %{buildroot}/%{_includedir}/
 rm -f %{buildroot}/%{_libdir}/lib*.{la,a}
-find %{buildroot}/%{_includedir} out/libsmbios_c++ out/libsmbios_c -exec touch -r $TOPDIR/configure.ac {} \;
+find %{buildroot}/%{_includedir} out/libsmbios_c -exec touch -r $TOPDIR/configure.ac {} \;
 
-mv out/libsmbios_c++  out/libsmbios_c++-%{_arch}
 mv out/libsmbios_c    out/libsmbios_c-%{_arch}
 
 rename %{pot_file}.mo %{lang_dom}.mo $(find %{buildroot}/%{_datadir} -name %{pot_file}.mo)
@@ -227,11 +230,12 @@ rm -rf %{buildroot}
 %files -n libsmbios-devel -f _build/buildlogs.txt
 %defattr(-,root,root,-)
 %doc COPYING-GPL COPYING-OSL README.md src/bin/getopts_LICENSE.txt src/include/smbios/config/boost_LICENSE_1_0_txt
-%{_includedir}/smbios
 %{_includedir}/smbios_c
 %{_libdir}/libsmbios_c.so
-%{_libdir}/pkgconfig/*.pc
+%{_libdir}/pkgconfig/libsmbios_c.pc
 %doc _build/out/libsmbios_c-%{_arch}
+%exclude %{_includedir}/smbios/
+%exclude %{_libdir}/pkgconfig/libsmbios_c++.pc
 
 %files -n smbios-utils
 # opensuse 11.1 enforces non-empty file list :(
@@ -242,7 +246,7 @@ rm -rf %{buildroot}
 %files -n smbios-utils-bin
 %defattr(-,root,root,-)
 %doc COPYING-GPL COPYING-OSL README.md
-%doc src/bin/getopts_LICENSE.txt src/include/smbios/config/boost_LICENSE_1_0_txt
+%doc src/bin/getopts_LICENSE.txt
 %{_sbindir}/smbios-state-byte-ctl
 %{_mandir}/man8/smbios-state-byte-ctl.*
 %{_sbindir}/smbios-get-ut-data
@@ -260,7 +264,7 @@ rm -rf %{buildroot}
 %files -n smbios-utils-python
 %defattr(-,root,root,-)
 %doc COPYING-GPL COPYING-OSL README.md
-%doc src/bin/getopts_LICENSE.txt src/include/smbios/config/boost_LICENSE_1_0_txt
+%doc src/bin/getopts_LICENSE.txt
 %dir %{_sysconfdir}/libsmbios
 %config(noreplace) %{_sysconfdir}/libsmbios/*
 
@@ -288,6 +292,12 @@ rm -rf %{buildroot}
 %{_datadir}/smbios-utils
 
 %changelog
+* Wed May 16 2018 Peter Jones <pjones@redhat.com> - 2.3.3-8
+- Fix smbios-sys-info-lite crashes when an asset tag is not set
+  Resolves: rhbz#1562440
+- Fix vestigial c++ artifacts included in the package
+  Resolves: rhbz#1562440
+
 * Wed Feb 14 2018 Peter Jones <pjones@redhat.com> - 2.3.3-6
 - Pull in all the coverity fixes we sent upstream.  I had thought these
   made it in to this release; they did not, but the 2.4.0 release they are

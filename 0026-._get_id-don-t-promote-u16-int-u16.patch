@@ -1,0 +1,70 @@
+From 84324642457301172f1ab02a35b5fad9e43eab18 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Wed, 18 Apr 2018 10:41:37 -0400
+Subject: [PATCH 26/27] ..._get_id(): don't promote u16->int->u16
+
+Related: rhbz#1562440
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/token/token_d4.c   | 2 +-
+ src/libsmbios_c/token/token_da.c   | 2 +-
+ src/libsmbios_c/token/token_impl.h | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/libsmbios_c/token/token_d4.c b/src/libsmbios_c/token/token_d4.c
+index 2659721360a..353155b9317 100644
+--- a/src/libsmbios_c/token/token_d4.c
++++ b/src/libsmbios_c/token/token_d4.c
+@@ -46,7 +46,7 @@ static int _d4_get_type(const struct token_obj *t)
+     return 0xD4;
+ }
+ 
+-static int _d4_get_id(const struct token_obj *t)
++static u16 _d4_get_id(const struct token_obj *t)
+ {
+     dbg_printf("_d4_get_id\n");
+     return cast_token(t)->tokenId;
+diff --git a/src/libsmbios_c/token/token_da.c b/src/libsmbios_c/token/token_da.c
+index 5f80bea9ee1..b1a11c61f7d 100644
+--- a/src/libsmbios_c/token/token_da.c
++++ b/src/libsmbios_c/token/token_da.c
+@@ -48,7 +48,7 @@ static int _da_get_type(const struct token_obj *t)
+     return 0xDA;
+ }
+ 
+-static int _da_get_id(const struct token_obj *t)
++static u16 _da_get_id(const struct token_obj *t)
+ {
+     fnprintf("\n");
+     return cast_token(t)->tokenId;
+diff --git a/src/libsmbios_c/token/token_impl.h b/src/libsmbios_c/token/token_impl.h
+index 75e2fea124f..e15c30eebb1 100644
+--- a/src/libsmbios_c/token/token_impl.h
++++ b/src/libsmbios_c/token/token_impl.h
+@@ -46,7 +46,7 @@ enum // Token types
+ struct token_obj
+ {
+     int (*get_type)(const struct token_obj*);
+-    int (*get_id)(const struct token_obj*);
++    u16 (*get_id)(const struct token_obj*);
+     int (*is_bool)(const struct token_obj*);
+     int (*is_string)(const struct token_obj*);
+ 
+diff --git a/src/libsmbios_c/token/token_obj.c b/src/libsmbios_c/token/token_obj.c
+index b5948ae5a86..6928ace32c6 100644
+--- a/src/libsmbios_c/token/token_obj.c
++++ b/src/libsmbios_c/token/token_obj.c
+@@ -178,7 +178,7 @@ const struct token_obj *token_table_get_next_by_id(const struct token_table *t,
+     }
+ 
+ make_token_obj_fn( int, 0, get_type, "0x%04x" )
+-make_token_obj_fn( u16, 0, get_id, "0x%04x" )
++make_token_obj_fn( u16, 0, get_id, "0x%04hx" )
+ make_token_obj_fn( int, -1, is_active, "%d" )
+ make_token_obj_fn( int, -1, activate, "%d" )
+ make_token_obj_fn( bool, 0, is_bool, "%d" )
+
+-- 
+2.15.0
+

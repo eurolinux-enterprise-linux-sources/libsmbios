@@ -1,0 +1,141 @@
+From 2c695c2b28f36b38e99261cdc52a9ae46be0bf73 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Wed, 18 Apr 2018 10:51:42 -0400
+Subject: [PATCH 27/27] slightly better token debugging information
+
+Related: rhbz#1562440
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/token/token_d4.c  | 12 +++++++++---
+ src/libsmbios_c/token/token_da.c  |  9 +++++----
+ src/libsmbios_c/token/token_obj.c | 17 ++++++++++++-----
+ 3 files changed, 26 insertions(+), 12 deletions(-)
+
+diff --git a/src/libsmbios_c/token/token_d4.c b/src/libsmbios_c/token/token_d4.c
+index 353155b9317..3e6ecf875b6 100644
+--- a/src/libsmbios_c/token/token_d4.c
++++ b/src/libsmbios_c/token/token_d4.c
+@@ -43,23 +43,28 @@
+ 
+ static int _d4_get_type(const struct token_obj *t)
+ {
++    fnprintf("returning type 0xD4\n");
+     return 0xD4;
+ }
+ 
+ static u16 _d4_get_id(const struct token_obj *t)
+ {
+-    dbg_printf("_d4_get_id\n");
++    fnprintf("token ID 0x%04hx\n", cast_token(t)->tokenId);
+     return cast_token(t)->tokenId;
+ }
+ 
+ static int _d4_is_bool(const struct token_obj *t)
+ {
+-    return cast_token(t)->andMask != 0;
++    int ret = cast_token(t)->andMask != 0;
++    fnprintf("%s\n", ret ? "true" : "false");
++    return ret;
+ }
+ 
+ static int _d4_is_string(const struct token_obj *t)
+ {
+-    return cast_token(t)->andMask == 0;
++    int ret = cast_token(t)->andMask == 0;
++    fnprintf("%s\n", ret ? "true" : "false");
++    return ret;
+ }
+ 
+ static int _d4_is_active(const struct token_obj *t)
+@@ -93,6 +98,7 @@ out_err:
+     retval = -2;
+ 
+ out:
++    fnprintf("%s\n", retval ? "true" : "false");
+     return retval;
+ }
+ 
+diff --git a/src/libsmbios_c/token/token_da.c b/src/libsmbios_c/token/token_da.c
+index b1a11c61f7d..702929e6c44 100644
+--- a/src/libsmbios_c/token/token_da.c
++++ b/src/libsmbios_c/token/token_da.c
+@@ -44,13 +44,13 @@
+ 
+ static int _da_get_type(const struct token_obj *t)
+ {
+-    fnprintf("\n");
++    fnprintf("returning type 0xDA\n");
+     return 0xDA;
+ }
+ 
+ static u16 _da_get_id(const struct token_obj *t)
+ {
+-    fnprintf("\n");
++    fnprintf("token ID 0x%04hx\n", cast_token(t)->tokenId);
+     return cast_token(t)->tokenId;
+ }
+ 
+@@ -59,13 +59,13 @@ static u16 _da_get_id(const struct token_obj *t)
+ 
+ static int _da_is_bool(const struct token_obj *t)
+ {
+-    fnprintf("\n");
++    fnprintf("true\n");
+     return true;
+ }
+ 
+ static int _da_is_string(const struct token_obj *t)
+ {
+-    fnprintf("\n");
++    fnprintf("true\n");
+     return true;
+ }
+ 
+@@ -86,6 +86,7 @@ static int _da_is_active(const struct token_obj *t)
+         retval = 1;
+ 
+ out:
++    fnprintf("%s\n", retval ? "true" : "false");
+     return retval;
+ }
+ 
+diff --git a/src/libsmbios_c/token/token_obj.c b/src/libsmbios_c/token/token_obj.c
+index b5948ae5a86..6928ace32c6 100644
+--- a/src/libsmbios_c/token/token_obj.c
++++ b/src/libsmbios_c/token/token_obj.c
+@@ -151,13 +151,19 @@ const struct token_obj *token_table_get_next(const struct token_table *t, const
+ 
+ const struct token_obj *token_table_get_next_by_id(const struct token_table *t, const struct token_obj *cur, u16 id)
+ {
+-    fnprintf("\n");
++    fnprintf("looking for object 0x%hx\n", id);
++
+     do {
+         cur = token_table_get_next(t, cur);
+-        dbg_printf("look for %d, got %d\n", id, token_obj_get_id(cur));
+-        if (cur && token_obj_get_id(cur) == id)
+-            break;
++
++        if (cur) {
++            u16 obj_id = token_obj_get_id(cur);
++            fnprintf("got object 0x%hx\n", obj_id);
++            if (obj_id == id)
++                break;
++        }
+     } while ( cur );
++
+     return cur;
+ }
+ 
+@@ -281,6 +287,7 @@ int init_token_table(struct token_table *t)
+     if (ret)
+         goto out_tokenfail;
+ 
++    error = _("Error while trying to add 0xDA tokens.\n");
+     ret = add_da_tokens(t);
+     if (ret)
+         goto out_tokenfail;
+-- 
+2.15.0
+

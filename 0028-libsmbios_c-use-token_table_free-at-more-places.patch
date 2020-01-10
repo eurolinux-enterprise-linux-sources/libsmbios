@@ -1,0 +1,63 @@
+From 6281bd8a7136c0ee86e3f800bf8d2805e7100ae9 Mon Sep 17 00:00:00 2001
+From: Peter Jones <pjones@redhat.com>
+Date: Wed, 16 May 2018 16:02:55 -0400
+Subject: [PATCH] libsmbios_c: use token_table_free() at more places.
+
+This should fix e.g. smbios-sys-info-lite when an asset tag is not set.
+
+Related: rhbz#1562440
+
+Signed-off-by: Peter Jones <pjones@redhat.com>
+---
+ src/libsmbios_c/token/token.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/src/libsmbios_c/token/token.c b/src/libsmbios_c/token/token.c
+index 0771ca31d2f..7369d3e19e7 100644
+--- a/src/libsmbios_c/token/token.c
++++ b/src/libsmbios_c/token/token.c
+@@ -42,7 +42,7 @@ const char * token_strerror()
+     fnprintf("\n");
+     if (table) {
+         retval = token_table_strerror(table);
+-        free(table);
++        token_table_free(table);
+     }
+     return retval;
+ }
+@@ -56,7 +56,7 @@ const char * token_strerror()
+         table = token_table_factory(TOKEN_DEFAULTS);        \
+         if (!table) goto out;                               \
+         token = token_table_get_next_by_id(table, 0, id);   \
+-        free(table);                                        \
++        token_table_free(table);                            \
+         if (!token) goto out;                               \
+         return token_obj_##callname (token);                \
+ out:                                                        \
+@@ -79,6 +79,7 @@ char * token_get_string (u16 id, size_t *len)
+     table = token_table_factory(TOKEN_DEFAULTS);
+     if (!table) goto out;
+     token = token_table_get_next_by_id(table, 0, id);
++    token_table_free(table);
+     if (!token) goto out;
+     return token_obj_get_string(token, len);
+ out:
+@@ -99,6 +100,7 @@ int token_set_string(u16 id, const char *newstr, size_t size)
+     table = token_table_factory(TOKEN_DEFAULTS);
+     if (!table) goto out;
+     token = token_table_get_next_by_id(table, 0, id);
++    token_table_free(table);
+     if (!token) goto out;
+     return token -> set_string (token, newstr, size);
+ out:
+@@ -113,6 +115,7 @@ int token_try_password(u16 id, const char *pass_ascii, const char *pass_scancode
+     table = token_table_factory(TOKEN_DEFAULTS);
+     if (!table) goto out;
+     token = token_table_get_next_by_id(table, 0, id);
++    token_table_free(table);
+     if (!token) goto out;
+     return token -> try_password (token, pass_ascii, pass_scancode);
+ out:
+-- 
+2.14.3
+
